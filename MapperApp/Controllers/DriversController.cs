@@ -1,5 +1,8 @@
-﻿using MapperApp.Enums;
+﻿using AutoMapper;
+using MapperApp.Enums;
 using MapperApp.Models;
+using MapperApp.Models.DTOs.Incoming;
+using MapperApp.Models.DTOs.Outgoing;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MapperApp.Controllers
@@ -10,9 +13,11 @@ namespace MapperApp.Controllers
     {
         private readonly ILogger<DriversController> _logger;
         private static List<Driver> drivers = new List<Driver>();
-        public DriversController(ILogger<DriversController> logger)
+        private readonly IMapper _mapper;
+        public DriversController(ILogger<DriversController> logger, IMapper mapper)
         {
             _logger = logger;
+            _mapper = mapper;
         }
 
         // Get all drivers
@@ -20,16 +25,23 @@ namespace MapperApp.Controllers
         public IActionResult GetDrivers()
         {
             var driversResult = drivers.Where(x => x.Status == DriverStatus.Active).ToList();
-            return Ok(driversResult);
+
+            var _drivers = _mapper.Map<IEnumerable<DriverDto>>(driversResult);
+            return Ok(_drivers);
         }
 
         [HttpPost]
-        public IActionResult CreateDriver(Driver data)
+        public IActionResult CreateDriver(CreateDriverDto data)
         {
             if (ModelState.IsValid)
             {
-                drivers.Add(data);
-                return CreatedAtAction("GetDriver", new { data.Id }, data);
+                // Automapper will take care of mapping the DTO to the Driver instance
+                var _driver = _mapper.Map<Driver>(data);
+
+                drivers.Add(_driver);
+
+                var newDriver = _mapper.Map<DriverDto>(_driver);
+                return CreatedAtAction("GetDriver", new { _driver.Id }, newDriver);
             }
 
             return BadRequest("Model is not valid");
@@ -44,8 +56,10 @@ namespace MapperApp.Controllers
 
             if (result == null) 
                 return NotFound();
+
+            var _driver = _mapper.Map<DriverDto>(result);
             
-            return Ok(result);
+            return Ok(_driver);
         }
 
         [HttpPut("{id}")]
@@ -70,7 +84,7 @@ namespace MapperApp.Controllers
             return NoContent();
         }
 
-        [HttpDelete]
+        [HttpDelete("{id}")]
         public IActionResult DeleteDriver(Guid id)
         {
             var driver = drivers.FirstOrDefault(x => x.Id == id);
